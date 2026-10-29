@@ -29,13 +29,19 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: 'true'
+          log-accepted-android-sdk-licenses: 'false'
+          packages: 'platform-tools'
 
       - name: Install Android SDK packages
+        shell: bash
         run: |
+          set -euo pipefail
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
@@ -43,7 +49,7 @@ jobs:
       - name: Find or extract Android project
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           PROJECT_DIR=""
 
@@ -90,15 +96,28 @@ jobs:
           echo "ANDROID_PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Build debug APK
+        shell: bash
         run: |
+          set -euo pipefail
           cd "$ANDROID_PROJECT_DIR"
           gradle --no-daemon assembleDebug
 
       - name: Verify APK
+        shell: bash
         run: |
+          set -euo pipefail
           cd "$ANDROID_PROJECT_DIR"
-          find app/build/outputs/apk -type f -name '*.apk'
-          test -n "$(find app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+
+          APK_FILE=$(find app/build/outputs/apk \
+            -type f -name '*.apk' -print -quit)
+
+          if [ -z "$APK_FILE" ]; then
+            echo "::error::APK was not generated."
+            exit 1
+          fi
+
+          echo "APK generated successfully: $APK_FILE"
+          ls -lh "$APK_FILE"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
